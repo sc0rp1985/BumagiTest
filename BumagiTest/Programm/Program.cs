@@ -59,7 +59,10 @@ namespace Programm
                             ShowHelp();
                             break;
                         case Const.List:
-                            ShowList(wsDao);
+                            ShowList(wsDao,null);
+                            break;
+                        case Const.ListToday:
+                            ShowList(wsDao,DateTime.Today);
                             break;
                         case Const.Exit:
                             Exit();
@@ -72,6 +75,9 @@ namespace Programm
                             break;
                         case Const.Zip:
                             Zip(wsName,zipPath,wsDao);
+                            break;
+                        case Const.Stat:
+                            ShowStat(wsDao);
                             break;
                         default:
                             Console.WriteLine(
@@ -95,9 +101,9 @@ namespace Programm
             }
         }
 
-        static void ShowList(IWorksheetDao wsDao)
+        static void ShowList(IWorksheetDao wsDao, DateTime? date)
         {
-            var list = wsDao.List();
+            var list = wsDao.List(new WorksheetQuery{Date = date});
             foreach (var ws in list)
             {
                 Console.WriteLine(ws.Id);
@@ -155,6 +161,10 @@ namespace Programm
             try
             {
                 var ws = wsDao.Get(wsName);
+                if (!Directory.Exists(zipPath))
+                {
+                    Directory.CreateDirectory(zipPath);
+                }
                 using (var zip = ZipFile.Create(zipPath+"\\"+wsName+".zip"))
                 {
                     zip.BeginUpdate();
@@ -163,7 +173,7 @@ namespace Programm
                     {
                         sw.Write(ws.ToString());
                     }
-                    zip.Add(tmpFile);
+                    zip.Add(tmpFile, Path.GetFileName(tmpFile));
                     zip.CommitUpdate();
                 }
                     
@@ -177,6 +187,53 @@ namespace Programm
             }
         }
 
+        static void ShowStat(IWorksheetDao wsDao)
+        {
+            var list = wsDao.List(null);
+
+            var bdList = list.Select(x =>
+                x.Detail.Where(q => q.QuestionId == DaoConst.BirthDayId && q.AsDate.HasValue).Select(a => a.AsDate).FirstOrDefault()).Where(x => x.HasValue).Select(x=>x.Value).ToList();
+            var avgDays = bdList.Select(x => (DateTime.Today - x).Days).Average();
+            var yers = (int)avgDays / 365;
+            Console.WriteLine($"Средний возраст всех опрошенных: {yers} {GetYersWord(yers)}");
+
+
+            var expStrList = list.Select(x =>
+                x.Detail.Where(q => q.QuestionId == DaoConst.ExperienceId && q.AsInt.HasValue).Select(a => a.AsInt).FirstOrDefault()).Where(x=>x.HasValue).ToList();
+            var maxExp = expStrList.Max();
+
+            var plGroupList = list.Select(x => new
+            {
+                Id = x.Id,
+                ProgLang = x.Detail.Where(q => q.QuestionId == DaoConst.ProgLangId).Select(a => a.Answer).First(),
+            }).GroupBy(g => g.ProgLang).Select(t=> new
+            {
+                ProgLang = t.Key,
+                Qty = t.Count()
+            }).ToList();
+
+            var qty = plGroupList.Select(x => x.Qty).Max();
+            var maxPlName = plGroupList.Where(x => x.Qty == qty).Select(p => p.ProgLang).ToList();
+            Console.WriteLine($"Самый популярный язык программирования: {maxPlName.Aggregate((p, n) => p + ", " + n)}");
+            var tmp = list.Where(x => x.Detail.Any(q => q.QuestionId == DaoConst.ExperienceId && q.AsInt == maxExp))
+                .Select(x => x.Id).ToList();
+            Console.WriteLine($"Самый опытный программист: {tmp.Aggregate((p,n)=>p+", "+n)} {maxExp} {GetYersWord(maxExp.Value)}");
+        }
+
+        static string GetYersWord(int years)
+        {
+            var s = string.Empty;
+            if (years > 19 || years < 10)
+            {
+                var last = years % 10;
+                if (last == 1) s = "год";
+                else if (last == 0 || last >= 5) s = "лет";
+                else s = "года";
+            }
+
+            return s;
+        }
+
         static void Edit()
         {
             var qDao = Cfg.Resolve<IQuestionDao>();
@@ -185,7 +242,7 @@ namespace Programm
             var currentQuestionItem = 0;
             var ws = new Worksheet
             {
-                CreateDate = DateTime.Today.ToString("d"),
+                CreateDate = DateTime.Today.ToString("dd.MM.yyyy"),
                 Detail = new List<WorksheetDetail>(),
             };
             var wsSaved = false;
@@ -349,8 +406,7 @@ namespace Programm
 
         static string ValidateInt(string val)
         {
-            int n;
-            return Int32.TryParse(val, out n) ? string.Empty : "Введено  не корректное значение";
+            return val.AsInt().HasValue ? string.Empty : "Введено  не корректное значение";
         }
 
         static string ValidatePhone(string phone)
@@ -379,13 +435,8 @@ namespace Programm
 
         static string ValidateDate(string date)
         {
-            DateTime dt;
-            return DateTime.TryParseExact(
-                date,
-                "dd.MM.yyyy",
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.None,
-                out dt)
+            var dt = date.AsDate();
+            return dt.HasValue
                 ? String.Empty
                 : "Не верный формат даты. Требуемый формат дд.мм.гггг";
         } 

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Runtime.Remoting.Messaging;
 using System.Text;
 using System.Threading.Tasks;
 using Common;
@@ -82,5 +83,9 @@ namespace DAO
         public int QuestionId { get; set; }
         public string Question { get; set; }
         public string Answer { get; set; }
+
+        public int? AsInt => Answer.AsInt();
+
+        public DateTime? AsDate => Answer.AsDate();
     }
 }
