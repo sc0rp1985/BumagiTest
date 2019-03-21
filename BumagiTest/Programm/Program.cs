@@ -49,41 +49,48 @@ namespace Programm
                     var cmd = splitcmd[0];
                     var wsName = splitcmd.Length >= 4 ? splitcmd[1]+" "+splitcmd[2] + " " +splitcmd[3]: string.Empty;
                     var zipPath = wsName.IsNullOrEmpty() ? string.Empty : input.Substring(input.IndexOf(wsName) + wsName.Length);
-
-                    switch (cmd)
+                    try
                     {
-                        case Const.NewProfile:
-                            Edit();
-                            break;
-                        case Const.Help:
-                            ShowHelp();
-                            break;
-                        case Const.List:
-                            ShowList(wsDao,null);
-                            break;
-                        case Const.ListToday:
-                            ShowList(wsDao,DateTime.Today);
-                            break;
-                        case Const.Exit:
-                            Exit();
-                            break;
-                        case Const.Find:
-                            Find(wsName,wsDao);
-                            break;
-                        case Const.Delete:
-                            Delete(wsName,wsDao);
-                            break;
-                        case Const.Zip:
-                            Zip(wsName,zipPath,wsDao);
-                            break;
-                        case Const.Stat:
-                            ShowStat(wsDao);
-                            break;
-                        default:
-                            Console.WriteLine(
-                                $"Команда не распознана. введите {Const.Help} для просмотра поддерживаемых команд");
-                            break;
+                        switch (cmd)
+                        {
+                            case Const.NewProfile:
+                                Edit();
+                                break;
+                            case Const.Help:
+                                ShowHelp();
+                                break;
+                            case Const.List:
+                                ShowList(wsDao, null);
+                                break;
+                            case Const.ListToday:
+                                ShowList(wsDao, DateTime.Today);
+                                break;
+                            case Const.Exit:
+                                Exit();
+                                break;
+                            case Const.Find:
+                                Find(wsName, wsDao);
+                                break;
+                            case Const.Delete:
+                                Delete(wsName, wsDao);
+                                break;
+                            case Const.Zip:
+                                Zip(wsName, zipPath, wsDao);
+                                break;
+                            case Const.Stat:
+                                ShowStat(wsDao);
+                                break;
+                            default:
+                                Console.WriteLine(
+                                    $"Команда не распознана. введите {Const.Help} для просмотра поддерживаемых команд");
+                                break;
+                        }
                     }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine(e);
+                    }
+                    
                 }
             }
         }
@@ -190,6 +197,11 @@ namespace Programm
         static void ShowStat(IWorksheetDao wsDao)
         {
             var list = wsDao.List(null);
+            if (list.IsNullOrEmpty())
+            {
+                Console.Write("Список анкет пуст");
+                return;
+            }
 
             var bdList = list.Select(x =>
                 x.Detail.Where(q => q.QuestionId == DaoConst.BirthDayId && q.AsDate.HasValue).Select(a => a.AsDate).FirstOrDefault()).Where(x => x.HasValue).Select(x=>x.Value).ToList();
