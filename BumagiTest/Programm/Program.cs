@@ -235,13 +235,15 @@ namespace Programm
         static string GetYersWord(int years)
         {
             var s = string.Empty;
-            if (years > 19 || years < 10)
+            var n = years % 100;
+            if (n > 19 || n < 10)
             {
-                var last = years % 10;
+                var last = n % 10;
                 if (last == 1) s = "год";
                 else if (last == 0 || last >= 5) s = "лет";
                 else s = "года";
             }
+            else s = "лет";
 
             return s;
         }
